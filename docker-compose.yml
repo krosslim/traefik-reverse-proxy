@@ -1,0 +1,87 @@
+version: "3.9"
+
+networks:
+  traefik-proxy:
+    external: true
+
+volumes:
+  letsencrypt:
+
+services:
+  traefik:
+    image: traefik:v3.5.1
+    container_name: traefik
+    restart: unless-stopped
+    networks: [traefik-proxy]
+    ports:
+      - "80:80"
+      - "443:443"
+
+    command:
+      # Providers
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=traefik-proxy"
+
+      # Entrypoints
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+
+      # Redirect 80 -> 443
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+
+      # ACME (Let's Encrypt, HTTP-01)
+      - "--certificatesresolvers.myresolver.acme.email=${LE_EMAIL}"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.myresolver.acme.httpchallenge=true"
+      - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
+
+      # API, Dashboard & Ping
+      - "--api.dashboard=true"
+      - "--ping=true"
+
+      # Logging
+      - "--accesslog=true"
+      - "--log.level=WARN"
+
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "letsencrypt:/letsencrypt"
+
+    labels:
+      - "traefik.enable=true"
+
+      # Dashboard
+      - "traefik.http.routers.traefik.rule=Host(`${TRAEFIK_HOST}`)"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.tls.certresolver=myresolver"
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.routers.traefik.middlewares=dashboard-chain@docker"
+
+      # Middlewares
+      # Цепочка: сначала whitelist, затем basic auth
+      - "traefik.http.middlewares.dashboard-chain.chain.middlewares=ip-whitelist,dashboard-auth"
+
+      # IP whitelist (список CIDR через запятую)
+#      - "traefik.http.middlewares.ip-whitelist.ipwhitelist.sourcerange=${WHITELIST_IP}"
+
+      # Basic Auth
+      - "traefik.http.middlewares.dashboard-auth.basicauth.users=${TRAEFIK_BASIC_USERS}"
+
+      # Общие middleware
+      - "traefik.http.middlewares.secure-headers.headers.frameDeny=true"
+      - "traefik.http.middlewares.secure-headers.headers.contentTypeNosniff=true"
+      - "traefik.http.middlewares.secure-headers.headers.browserXssFilter=true"
+      - "traefik.http.middlewares.secure-headers.headers.referrerPolicy=no-referrer-when-downgrade"
+      - "traefik.http.middlewares.secure-headers.headers.stsSeconds=31536000"
+      - "traefik.http.middlewares.secure-headers.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.secure-headers.headers.stsPreload=true"
+      - "traefik.http.middlewares.compress.compress=true"
+
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
