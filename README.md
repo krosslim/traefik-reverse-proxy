@@ -8,13 +8,12 @@ docker network create traefik-proxy
 ```
 ### 2. Настроить Traefik
 ```bash
-# Создать папку
-mkdir traefik-reverse-proxy
-cd traefik-reverse-proxy
-```
-```bash
 # Клонировать репозиторий
 git clone https://github.com/krosslim/traefik-reverse-proxy.git
+```
+```bash
+# Перейти в папку проекта
+cd traefik-reverse-proxy
 ```
 ```bash
 # Создать и заполнить .env файл
