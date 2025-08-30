@@ -61,7 +61,10 @@ services:
 
       # Middlewares
       # Цепочка: сначала whitelist, затем basic auth
-      - "traefik.http.middlewares.dashboard-chain.chain.middlewares=ip-whitelist,dashboard-auth"
+#      - "traefik.http.middlewares.dashboard-chain.chain.middlewares=ip-whitelist,dashboard-auth"
+      - "traefik.http.middlewares.dashboard-chain.chain.middlewares=dashboard-auth"
+
+
 
       # IP whitelist (список CIDR через запятую)
 #      - "traefik.http.middlewares.ip-whitelist.ipwhitelist.sourcerange=${WHITELIST_IP}"
